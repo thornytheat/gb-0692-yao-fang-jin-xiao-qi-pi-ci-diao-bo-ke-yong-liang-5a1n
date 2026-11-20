@@ -4,6 +4,8 @@ from app.errors import DomainError
 from app.reader import decode
 from app.pipeline import calculate
 from app.store import save, latest, history, review, get_run
+from app.release import sign as release_sign
+from app.release_store import ensure_orders, list_orders, list_ledger
 from app.web import bp as web
 
 from app.modules.m1_receiving.handler import bp as bp1
@@ -77,4 +79,23 @@ def evidence():
     writer=csv.DictWriter(out,fieldnames=fields);writer.writeheader()
     for row in rows: writer.writerow({'run_id':result['manifest']['run_id'],'规则版本':result['manifest']['rule_version'],**row})
     return Response('\ufeff'+out.getvalue(),mimetype='text/csv',headers={'Content-Disposition':'attachment; filename=evidence.csv'})
+def release_run():
+    run=get_run(request.args['run_id']) if request.args.get('run_id') else (latest() or save(calculate()))
+    ensure_orders(run)
+    return run
+@app.route('/api/release/orders')
+def release_orders():
+    run=release_run()
+    return jsonify({'run_id':run['manifest']['run_id'],'orders':list_orders(run['manifest']['run_id'])})
+@app.route('/api/release/ledger')
+def release_ledger():
+    run=release_run()
+    return jsonify({'run_id':run['manifest']['run_id'],'ledger':list_ledger(run['manifest']['run_id'])})
+@app.route('/api/release/sign',methods=['POST'])
+def release_sign_api():
+    body=request.get_json(silent=True) or {}
+    if not body.get('run_id'): raise DomainError('REQUEST','缺少run_id')
+    try: version=int(body.get('version',0))
+    except (ValueError,TypeError): raise DomainError('VERSION','版本必须为整数')
+    return jsonify(release_sign(body['run_id'],body.get('order_id'),body.get('action'),body.get('pharmacist'),body.get('action_id'),version,body.get('at')))
 if __name__=='__main__': app.run(host='0.0.0.0',port=8000)

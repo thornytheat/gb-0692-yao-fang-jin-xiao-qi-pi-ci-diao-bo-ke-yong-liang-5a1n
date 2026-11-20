@@ -15,6 +15,7 @@
 | M5 调拨分配 | 运行调拨分配并复核证据 | `POST /api/m5`；`/work/5` | `app/modules/m5_allocation/rules.py` | `tests/test_m5.py` |
 | M6 收发对账 | 运行收发对账并复核证据 | `POST /api/m6`；`/work/6` | `app/modules/m6_reconcile/rules.py` | `tests/test_m6.py` |
 | M7 方案复核 | 运行方案复核并复核证据 | `POST /api/m7`；`/work/7` | `app/modules/m7_approval/rules.py` | `tests/test_m7.py` |
+| 夜班放行 | 双人签核放行每单调拨 | `POST /api/release/sign`；`/release` | `app/release.py` | `tests/test_release.py` |
 
 ## 陷阱登记
 
@@ -28,6 +29,13 @@
 | TRAP-19 | 召回优先 | 静默覆盖或误计 | 显式裁决并保留证据 | `app/modules/m2_lots/rules.py` | `tests/test_m2.py::test_recall_dominates` |
 | TRAP-23 | 效期端点 | 静默覆盖或误计 | 显式裁决并保留证据 | `app/modules/m3_expiry/rules.py` | `tests/test_m3.py::test_expired_isolated` |
 | TRAP-26 | 陈旧复核 | 静默覆盖或误计 | 显式裁决并保留证据 | `app/modules/m7_approval/rules.py` | `tests/test_m7.py::test_review_api_stale` |
+| TRAP-31 | 夜间单人两签 | 一人顶两签或库存未复核离库 | 首签仅得有条件放行（待补签），补签须他人，服务端拒绝同人 | `app/release.py` | `tests/test_release.py::test_same_pharmacist_cannot_sign_twice` |
+| TRAP-32 | 签核重试 | 重复提交新增重复签核 | action_id幂等键唯一约束，重放返回首次结论 | `app/release.py` | `tests/test_release.py::test_retry_same_action_id_adds_no_signature` |
+| TRAP-33 | 补签失败 | 失败改写旧结论或档案丢记录 | 事务回滚保留旧版结论，档案只增不删，撤回为追加记录 | `app/release.py` | `tests/test_release.py::test_stale_version_keeps_old_conclusion` |
+
+## 放行签核
+
+状态机：待首签→（首签通过）→待补签（有条件放行，可发车）→（补签通过）→已放行；首签或补签驳回、撤回首签均转被拦下（终态）；已放行撤回补签回到待补签。补签人与首签人不得相同；撤回仅限签核本人；补签超过首签后12小时记晚到（COUNTERSIGN_GRACE_HOURS）。签核档案append-only，任何失败回滚后旧版放行结论不变。
 
 ## 对账规则
 

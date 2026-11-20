@@ -6,3 +6,4 @@ MODULES = ['库存接收', '批号裁决', '效期分层', '需求净额', '调�
 HEADERS = ['record', 'kind', 'sku', 'lot', 'qty', 'frozen', 'pack', 'expiry', 'store', 'min_days', 'arrival', 'version', 'status']
 SAMPLE = Path(__file__).resolve().parent.parent / "sample_data" / "operations.csv"
 LIMIT = 10000
+COUNTERSIGN_GRACE_HOURS = 12
